@@ -233,13 +233,32 @@ async function scanBundles(html: string, pageUrl: URL): Promise<ReturnType<typeo
 }
 
 /**
+ * Serverless platforms (Vercel/Lambda) ship no system Chrome, so use the
+ * @sparticuz/chromium build there; locally, full puppeteer manages its own.
+ */
+async function launchBrowser() {
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const [{ default: chromium }, { default: puppeteer }] = await Promise.all([
+      import("@sparticuz/chromium"),
+      import("puppeteer-core"),
+    ]);
+    return puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+  const puppeteer = (await import("puppeteer")).default;
+  return puppeteer.launch({ headless: true });
+}
+
+/**
  * Render the page in headless Chrome so client-side apps (React/Vue SPAs)
  * produce their real content before extraction. Also captures a screenshot
  * of the top of the page so the LLM can judge the visual design.
  */
 async function renderWithBrowser(url: URL): Promise<{ html: string; screenshot?: string }> {
-  const puppeteer = (await import("puppeteer")).default;
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
