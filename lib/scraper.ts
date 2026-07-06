@@ -245,7 +245,8 @@ async function launchBrowser() {
     return puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: true,
+      // @sparticuz/chromium ships chrome-headless-shell; other modes fail to launch.
+      headless: "shell",
     });
   }
   const puppeteer = (await import("puppeteer")).default;
@@ -319,8 +320,9 @@ export async function scrape(input: string): Promise<ExtractedContent> {
       // Keep the head as originally served: puppeteer's DOM serialization
       // normalizes the hand-edit quirks the LLM should get to see.
       content.headHtml = html.slice(0, 4000);
-    } catch {
+    } catch (err) {
       // Browser render is best-effort; fall through with the static result.
+      console.error("browser render failed:", err);
     }
   }
 
